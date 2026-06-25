@@ -1,6 +1,9 @@
 package com.queueify.campaignservice.authentication.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -9,7 +12,6 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @Table(name = "users")
 public class User {
 
@@ -30,4 +32,12 @@ public class User {
     private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public User(String name, String email, String passwordHash, LocalDateTime createdAt, LocalDateTime updatedAt){
+        this.name = name;
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }
