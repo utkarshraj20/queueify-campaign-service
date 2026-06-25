@@ -6,12 +6,9 @@ public class RegisterResponse {
 
     public String responseMessage;
 
-    public String responseCode ;
-
-    public RegisterResponse(String name, String responseMessage, String responseCode){
+    public RegisterResponse(String name, String responseMessage){
         this.name = name;
         this.responseMessage = responseMessage;
-        this.responseCode = responseCode;
     }
 
     public String getName(){
@@ -20,10 +17,6 @@ public class RegisterResponse {
 
     public String getResponseMessage(){
         return this.responseMessage;
-    }
-
-    public String getResponseCode(){
-        return this.responseCode;
     }
 
 }

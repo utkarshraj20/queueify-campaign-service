@@ -33,7 +33,7 @@ public class AuthService {
     public RegisterResponse saveUser(RegisterRequest registerRequest){
 
         if( userExist(registerRequest) ){
-            return new RegisterResponse( registerRequest.getName() , "User already exist" , "404" );
+            return new RegisterResponse( registerRequest.getName() , "User already exist");
         }
 
         //sendVerifyEmail(registerRequest.getEmail());
@@ -43,7 +43,7 @@ public class AuthService {
         System.out.println(user);
         userRepository.save(user);
 
-        return new RegisterResponse( registerRequest.getName() , "User registered successfully" , "200" );
+        return new RegisterResponse( registerRequest.getName() , "User registered successfully");
     }
 
 //    public boolean sendVerifyEmail(String email){
