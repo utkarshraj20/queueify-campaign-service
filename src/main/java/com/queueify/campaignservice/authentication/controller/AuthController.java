@@ -4,6 +4,8 @@ import com.queueify.campaignservice.authentication.dto.RegisterRequest;
 import com.queueify.campaignservice.authentication.dto.RegisterResponse;
 import com.queueify.campaignservice.authentication.service.AuthService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,8 +23,8 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public RegisterResponse authUser( @Valid @RequestBody RegisterRequest registerRequest){
-        System.out.println(registerRequest);
-        return authService.saveUser(registerRequest) ;
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest registerRequest){
+        RegisterResponse response = authService.saveUser(registerRequest) ;
+        return ResponseEntity.status(HttpStatus.CREATED).body(response) ;
     }
 }

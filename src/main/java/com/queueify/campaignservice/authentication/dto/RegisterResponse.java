@@ -1,22 +1,18 @@
 package com.queueify.campaignservice.authentication.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class RegisterResponse {
 
-    public String name;
-
-    public String responseMessage;
+    private String name;
+    private String responseMessage;
 
     public RegisterResponse(String name, String responseMessage){
         this.name = name;
         this.responseMessage = responseMessage;
-    }
-
-    public String getName(){
-        return this.name;
-    }
-
-    public String getResponseMessage(){
-        return this.responseMessage;
     }
 
 }
