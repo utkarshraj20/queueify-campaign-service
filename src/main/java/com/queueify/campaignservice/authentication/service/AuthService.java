@@ -5,13 +5,10 @@ import com.queueify.campaignservice.authentication.dto.RegisterResponse;
 import com.queueify.campaignservice.authentication.entity.User;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
 import com.queueify.campaignservice.authentication.repository.UserRepository;
-import com.queueify.campaignservice.common.util.OtpUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.sql.Time;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 public class AuthService {
