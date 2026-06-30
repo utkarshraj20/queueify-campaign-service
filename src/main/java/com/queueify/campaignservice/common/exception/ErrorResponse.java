@@ -5,6 +5,7 @@ import com.queueify.campaignservice.common.dto.ValidationError;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.util.List;
 
 @Getter
@@ -12,13 +13,13 @@ import java.util.List;
 public class ErrorResponse {
     private int status;
     private String message;
-    private long timestamp;
+    private Instant timestamp;
     private String path;
     private String error;
     private List<ValidationError> errors;
 
 
-    public ErrorResponse(int status, List<ValidationError> errors, String error, String message, String path, long timestamp){
+    public ErrorResponse(int status, List<ValidationError> errors, String error, String message, String path, Instant timestamp){
         this.status = status;
         this.message = message;
         this.timestamp = timestamp;

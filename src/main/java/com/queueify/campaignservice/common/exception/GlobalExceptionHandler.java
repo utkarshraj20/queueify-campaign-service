@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.lang.reflect.Field;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,15 +20,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleUserAlreadyExists(UserAlreadyExistsException exception, HttpServletRequest request){
 
-        List<ValidationError> errors = new ArrayList<>() ;
-
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
-                errors,
+                List.of(),
                 HttpStatus.CONFLICT.getReasonPhrase(),
                 exception.getMessage(),
                 request.getRequestURI(),
-                System.currentTimeMillis()
+                Instant.now()
 
         );
 
@@ -38,19 +38,20 @@ public class GlobalExceptionHandler {
 
         List<ValidationError> errors = new ArrayList<>() ;
 
-        exception.getBindingResult().getAllErrors().forEach((error)->{
-            String field = ((FieldError) error).getField();
-            String message = ((FieldError) error).getDefaultMessage();
-            errors.add(new ValidationError(field, message));
-        });
+        for(FieldError error : exception.getBindingResult().getFieldErrors()){
+            errors.add(new ValidationError(
+                    error.getField(),
+                    error.getDefaultMessage()
+            ));
+        }
 
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 errors,
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                exception.getBindingResult().toString(),
+                "One or more request fields are invalid.",
                 request.getRequestURI(),
-                System.currentTimeMillis()
+                Instant.now()
         );
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);

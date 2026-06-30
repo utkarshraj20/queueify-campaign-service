@@ -5,6 +5,7 @@ import com.queueify.campaignservice.authentication.dto.RegisterResponse;
 import com.queueify.campaignservice.authentication.entity.User;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
 import com.queueify.campaignservice.authentication.repository.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +34,14 @@ public class AuthService {
 
         String passwordHash = passwordEncoder.encode(registerRequest.getPassword());
         User user = new User(registerRequest.getName(), registerRequest.getEmail(), passwordHash, LocalDateTime.now(), LocalDateTime.now());
-        userRepository.save(user);
+
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new UserAlreadyExistsException(
+                    "A user with email '" + registerRequest.getEmail() + "' already exists."
+            );
+        }
 
         return new RegisterResponse( registerRequest.getName() , "User registered successfully");
     }
