@@ -10,11 +10,16 @@ public class ErrorResponse {
     private int status;
     private String message;
     private long timestamp;
+    private String path;
+    private String error;
 
-    public ErrorResponse(int status, String message, long timestamp){
+
+    public ErrorResponse(int status, String error, String message, String path, long timestamp){
         this.status = status;
         this.message = message;
         this.timestamp = timestamp;
+        this.error = error;
+        this.path = path;
     }
 
 }

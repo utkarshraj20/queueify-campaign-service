@@ -24,19 +24,18 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public boolean userExist(RegisterRequest registerRequest){
+    public boolean emailExists(RegisterRequest registerRequest){
        return userRepository.existsByEmail(registerRequest.getEmail());
     }
 
     public RegisterResponse saveUser(RegisterRequest registerRequest){
 
-        if( userExist(registerRequest) ){
-            throw new UserAlreadyExistsException("User with email: " + registerRequest.getEmail() + "already exists" );
+        if( emailExists(registerRequest) ){
+            throw new UserAlreadyExistsException("A user with email '" + registerRequest.getEmail() + "' already exists." );
         }
 
         String passwordHash = passwordEncoder.encode(registerRequest.getPassword());
         User user = new User(registerRequest.getName(), registerRequest.getEmail(), passwordHash, LocalDateTime.now(), LocalDateTime.now());
-        System.out.println(user);
         userRepository.save(user);
 
         return new RegisterResponse( registerRequest.getName() , "User registered successfully");

@@ -14,10 +14,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUserAlreadyExists(UserAlreadyExistsException ex){
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
                 ex.getMessage(),
+                "/api/v1/auth/register",
                 System.currentTimeMillis()
+
         );
 
-        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 }
