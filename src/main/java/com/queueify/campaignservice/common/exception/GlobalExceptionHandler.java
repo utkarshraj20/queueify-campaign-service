@@ -1,8 +1,7 @@
 package com.queueify.campaignservice.common.exception;
 
+import com.queueify.campaignservice.authentication.exception.InvalidCredentialsException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
-import com.queueify.campaignservice.authentication.exception.UserDoesNotExistException;
-import com.queueify.campaignservice.authentication.exception.WrongPasswordException;
 import com.queueify.campaignservice.common.dto.ValidationError;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -34,22 +33,8 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
 
-    @ExceptionHandler(UserDoesNotExistException.class)
-    public ResponseEntity<ErrorResponse> handleUserDoesNotExist(UserDoesNotExistException exception, HttpServletRequest request){
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.NOT_FOUND.value(),
-                List.of(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                exception.getMessage(),
-                request.getRequestURI(),
-                Instant.now()
-        );
-
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
-    }
-
-    @ExceptionHandler(WrongPasswordException.class)
-    public ResponseEntity<ErrorResponse> handleWrongPasword(WrongPasswordException exception, HttpServletRequest request){
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException exception, HttpServletRequest request){
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
                 List.of(),
@@ -58,7 +43,6 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 Instant.now()
         );
-
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
     }
 

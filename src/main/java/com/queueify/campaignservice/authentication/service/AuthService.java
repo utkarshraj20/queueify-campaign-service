@@ -5,9 +5,8 @@ import com.queueify.campaignservice.authentication.dto.LoginResponse;
 import com.queueify.campaignservice.authentication.dto.RegisterRequest;
 import com.queueify.campaignservice.authentication.dto.RegisterResponse;
 import com.queueify.campaignservice.authentication.entity.User;
+import com.queueify.campaignservice.authentication.exception.InvalidCredentialsException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
-import com.queueify.campaignservice.authentication.exception.UserDoesNotExistException;
-import com.queueify.campaignservice.authentication.exception.WrongPasswordException;
 import com.queueify.campaignservice.authentication.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,12 +20,10 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.emailService = emailService;
     }
 
     public boolean emailExists(String email){
@@ -55,16 +52,16 @@ public class AuthService {
 
     public LoginResponse loginUser(LoginRequest loginRequest){
 
-        Optional<User> user = userRepository.getUserByEmail(loginRequest.getEmail());
+        Optional<User> user = userRepository.findByEmail(loginRequest.getEmail());
 
         if(user.isEmpty()){
-            throw new UserDoesNotExistException("User does not exist") ;
+            throw new InvalidCredentialsException("Invalid email or password.") ;
         }
 
         if( !passwordEncoder.matches(loginRequest.getPassword(), user.get().getPasswordHash()) ){
-            throw new WrongPasswordException("Password Incorrect") ;
+            throw new InvalidCredentialsException("Invalid email or password.") ;
         }
-        return new LoginResponse(user.get().getName(), "User LoggedIn successfully");
+        return new LoginResponse(user.get().getName(), "User logged in successfully.");
     }
 
 }

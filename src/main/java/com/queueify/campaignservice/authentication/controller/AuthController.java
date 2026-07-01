@@ -33,6 +33,6 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest){
         LoginResponse loginResponse = authService.loginUser(loginRequest);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(loginResponse);
+        return ResponseEntity.status(HttpStatus.OK).body(loginResponse);
     }
 }
