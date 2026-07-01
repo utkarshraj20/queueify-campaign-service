@@ -52,16 +52,14 @@ public class AuthService {
 
     public LoginResponse loginUser(LoginRequest loginRequest){
 
-        Optional<User> user = userRepository.findByEmail(loginRequest.getEmail());
+        User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() ->
+                        new InvalidCredentialsException("Invalid email or password."));
 
-        if(user.isEmpty()){
+        if( !passwordEncoder.matches(loginRequest.getPassword(), user.getPasswordHash()) ){
             throw new InvalidCredentialsException("Invalid email or password.") ;
         }
-
-        if( !passwordEncoder.matches(loginRequest.getPassword(), user.get().getPasswordHash()) ){
-            throw new InvalidCredentialsException("Invalid email or password.") ;
-        }
-        return new LoginResponse(user.get().getName(), "User logged in successfully.");
+        return new LoginResponse(user.getName(), "User logged in successfully.");
     }
 
 }
