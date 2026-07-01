@@ -1,8 +1,11 @@
 package com.queueify.campaignservice.authentication.service;
 
+import com.queueify.campaignservice.authentication.dto.LoginRequest;
+import com.queueify.campaignservice.authentication.dto.LoginResponse;
 import com.queueify.campaignservice.authentication.dto.RegisterRequest;
 import com.queueify.campaignservice.authentication.dto.RegisterResponse;
 import com.queueify.campaignservice.authentication.entity.User;
+import com.queueify.campaignservice.authentication.exception.InvalidCredentialsException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
 import com.queueify.campaignservice.authentication.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -10,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class AuthService {
@@ -22,13 +26,13 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public boolean emailExists(RegisterRequest registerRequest){
-       return userRepository.existsByEmail(registerRequest.getEmail());
+    public boolean emailExists(String email){
+       return userRepository.existsByEmail(email);
     }
 
     public RegisterResponse saveUser(RegisterRequest registerRequest){
 
-        if( emailExists(registerRequest) ){
+        if( emailExists(registerRequest.getEmail()) ){
             throw new UserAlreadyExistsException("A user with email '" + registerRequest.getEmail() + "' already exists." );
         }
 
@@ -44,6 +48,18 @@ public class AuthService {
         }
 
         return new RegisterResponse( registerRequest.getName() , "User registered successfully");
+    }
+
+    public LoginResponse loginUser(LoginRequest loginRequest){
+
+        User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() ->
+                        new InvalidCredentialsException("Invalid email or password."));
+
+        if( !passwordEncoder.matches(loginRequest.getPassword(), user.getPasswordHash()) ){
+            throw new InvalidCredentialsException("Invalid email or password.") ;
+        }
+        return new LoginResponse(user.getName(), "User logged in successfully.");
     }
 
 }

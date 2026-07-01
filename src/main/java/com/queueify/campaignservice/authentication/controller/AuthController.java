@@ -1,5 +1,7 @@
 package com.queueify.campaignservice.authentication.controller;
 
+import com.queueify.campaignservice.authentication.dto.LoginRequest;
+import com.queueify.campaignservice.authentication.dto.LoginResponse;
 import com.queueify.campaignservice.authentication.dto.RegisterRequest;
 import com.queueify.campaignservice.authentication.dto.RegisterResponse;
 import com.queueify.campaignservice.authentication.service.AuthService;
@@ -26,5 +28,11 @@ public class AuthController {
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest registerRequest){
         RegisterResponse response = authService.saveUser(registerRequest) ;
         return ResponseEntity.status(HttpStatus.CREATED).body(response) ;
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest){
+        LoginResponse loginResponse = authService.loginUser(loginRequest);
+        return ResponseEntity.status(HttpStatus.OK).body(loginResponse);
     }
 }
