@@ -14,5 +14,4 @@ public class RegisterResponse {
         this.name = name;
         this.responseMessage = responseMessage;
     }
-
 }
