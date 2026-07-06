@@ -7,6 +7,7 @@ import com.queueify.campaignservice.authentication.dto.RegisterResponse;
 import com.queueify.campaignservice.authentication.entity.User;
 import com.queueify.campaignservice.authentication.exception.InvalidCredentialsException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
+import com.queueify.campaignservice.authentication.jwt.JwtService;
 import com.queueify.campaignservice.authentication.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,10 +21,12 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public boolean emailExists(String email){
@@ -59,7 +62,11 @@ public class AuthService {
         if( !passwordEncoder.matches(loginRequest.getPassword(), user.getPasswordHash()) ){
             throw new InvalidCredentialsException("Invalid email or password.") ;
         }
-        return new LoginResponse(user.getName(), "User logged in successfully.");
+
+        String accessToken = jwtService.generateAccessToken(loginRequest.getEmail());
+        String refreshToken = jwtService.generateRefreshToken(loginRequest.getEmail());
+
+        return new LoginResponse(user.getName(), "User logged in successfully." , accessToken , refreshToken);
     }
 
 }
