@@ -18,8 +18,8 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(nullable = false)
-    private long user_id ;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(nullable = false)
     private String token;
@@ -34,11 +34,10 @@ public class RefreshToken {
     private LocalDateTime createdAt ;
 
     public RefreshToken(long user_id, String token, Boolean revoked,LocalDateTime createdAt, LocalDateTime expiredAt){
-        this.user_id = user_id;
+        this.userId = user_id;
         this.token = token;
         this.revoked = revoked;
         this.createdAt = createdAt;
         this.expiredAt = expiredAt;
     }
-
 }
