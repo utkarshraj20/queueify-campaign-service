@@ -1,9 +1,6 @@
 package com.queueify.campaignservice.authentication.controller;
 
-import com.queueify.campaignservice.authentication.dto.LoginRequest;
-import com.queueify.campaignservice.authentication.dto.LoginResponse;
-import com.queueify.campaignservice.authentication.dto.RegisterRequest;
-import com.queueify.campaignservice.authentication.dto.RegisterResponse;
+import com.queueify.campaignservice.authentication.dto.*;
 import com.queueify.campaignservice.authentication.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

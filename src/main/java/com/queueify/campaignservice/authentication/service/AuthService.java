@@ -1,20 +1,20 @@
 package com.queueify.campaignservice.authentication.service;
 
-import com.queueify.campaignservice.authentication.dto.LoginRequest;
-import com.queueify.campaignservice.authentication.dto.LoginResponse;
-import com.queueify.campaignservice.authentication.dto.RegisterRequest;
-import com.queueify.campaignservice.authentication.dto.RegisterResponse;
+import com.queueify.campaignservice.authentication.dto.*;
+import com.queueify.campaignservice.authentication.entity.RefreshToken;
 import com.queueify.campaignservice.authentication.entity.User;
 import com.queueify.campaignservice.authentication.exception.InvalidCredentialsException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
 import com.queueify.campaignservice.authentication.jwt.JwtService;
+import com.queueify.campaignservice.authentication.repository.RefreshTokenRepository;
 import com.queueify.campaignservice.authentication.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.time.temporal.ChronoUnit;
 
 @Service
 public class AuthService {
@@ -22,11 +22,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    @Value("${jwt.refresh-token-expiration}")
+    private long expiryTime;
+
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, RefreshTokenRepository refreshTokenRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     public boolean emailExists(String email){
@@ -63,10 +68,14 @@ public class AuthService {
             throw new InvalidCredentialsException("Invalid email or password.") ;
         }
 
-        String accessToken = jwtService.generateAccessToken(loginRequest.getEmail());
-        String refreshToken = jwtService.generateRefreshToken(loginRequest.getEmail());
+        String accessedToken = jwtService.generateAccessToken(loginRequest.getEmail());
+        String refreshedToken = jwtService.generateRefreshToken(loginRequest.getEmail());
 
-        return new LoginResponse(user.getName(), "User logged in successfully." , accessToken , refreshToken);
+        RefreshToken refreshToken = new RefreshToken(user.getId(), refreshedToken, false, LocalDateTime.now(), LocalDateTime.now().plus(expiryTime, ChronoUnit.MILLIS));
+
+        refreshTokenRepository.save(refreshToken);
+
+        return new LoginResponse(user.getName(), "User logged in successfully." , accessedToken , refreshedToken);
     }
 
 }
