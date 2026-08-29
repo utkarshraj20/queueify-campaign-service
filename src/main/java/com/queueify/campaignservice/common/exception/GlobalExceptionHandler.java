@@ -1,6 +1,7 @@
 package com.queueify.campaignservice.common.exception;
 
 import com.queueify.campaignservice.authentication.exception.InvalidCredentialsException;
+import com.queueify.campaignservice.authentication.exception.InvalidRefreshTokenException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
 import com.queueify.campaignservice.common.dto.ValidationError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,8 +34,8 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
 
-    @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException exception, HttpServletRequest request){
+    @ExceptionHandler({InvalidCredentialsException.class, InvalidRefreshTokenException.class})
+    public ResponseEntity<ErrorResponse> handleUnauthorized(RuntimeException exception, HttpServletRequest request){
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
                 List.of(),
