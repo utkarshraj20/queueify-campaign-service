@@ -24,7 +24,6 @@ public class AuthController {
     public AuthController(AuthService authService, RefreshTokenService refreshTokenService, JwtService jwtService) {
         this.refreshTokenService = refreshTokenService;
         this.jwtService = jwtService;
-        System.out.println("Reached");
         this.authService = authService;
     }
 
@@ -50,7 +49,7 @@ public class AuthController {
                 );
 
         String accessToken =
-                jwtService.generateAccessToken(refreshToken.getUserId().toString());
+                jwtService.generateAccessToken(refreshTokenService.getRefreshTokenOwnerEmail(refreshToken));
 
         return new RefreshTokenResponse(
                 accessToken,

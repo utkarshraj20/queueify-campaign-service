@@ -21,11 +21,11 @@ public class RefreshToken {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(nullable = false)
+    @Column(name = "refresh_token", nullable = false, unique = true, length = 512)
     private String token;
 
-    @Column(name = "expired_at", nullable = false)
-    private LocalDateTime expiredAt ;
+    @Column(name = "expires_at", nullable = false)
+    private LocalDateTime expiresAt ;
 
     @Column(name = "revoked", nullable = false)
     private Boolean revoked;
@@ -33,11 +33,11 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt ;
 
-    public RefreshToken(long user_id, String token, Boolean revoked,LocalDateTime createdAt, LocalDateTime expiredAt){
+    public RefreshToken(long user_id, String token, Boolean revoked,LocalDateTime createdAt, LocalDateTime expiresAt){
         this.userId = user_id;
         this.token = token;
         this.revoked = revoked;
         this.createdAt = createdAt;
-        this.expiredAt = expiredAt;
+        this.expiresAt = expiresAt;
     }
 }
