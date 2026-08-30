@@ -25,7 +25,6 @@ public class CreateEmailAccountRequest {
     @NotNull(message = "Authentication type is required")
     private EmailAuthType authType;
 
-    @NotBlank(message = "Encrypted app password is required")
     @Size(max = 512, message = "Encrypted app password must not exceed 512 characters")
     private String encryptedAppPassword;
 

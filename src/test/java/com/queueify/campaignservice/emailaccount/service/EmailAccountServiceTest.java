@@ -10,6 +10,7 @@ import com.queueify.campaignservice.emailaccount.entity.EmailAuthType;
 import com.queueify.campaignservice.emailaccount.entity.EmailProvider;
 import com.queueify.campaignservice.emailaccount.exception.DuplicateEmailAccountException;
 import com.queueify.campaignservice.emailaccount.exception.EmailAccountNotFoundException;
+import com.queueify.campaignservice.emailaccount.exception.InvalidEmailAccountException;
 import com.queueify.campaignservice.emailaccount.repository.EmailAccountRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -92,6 +93,125 @@ public class EmailAccountServiceTest {
     }
 
     @Test
+    void shouldThrowExceptionWhenSenderEmailFormatIsInvalid() {
+        CreateEmailAccountRequest request = new CreateEmailAccountRequest(
+                "not-an-email",
+                EmailProvider.GMAIL,
+                EmailAuthType.APP_PASSWORD,
+                "encrypted-password",
+                null
+        );
+
+        InvalidEmailAccountException exception = assertThrows(
+                InvalidEmailAccountException.class,
+                () -> emailAccountService.createEmailAccount(1L, request)
+        );
+
+        assertEquals("Please provide a valid sender email.", exception.getMessage());
+        verify(emailAccountRepository, never()).existsByUserIdAndSenderEmail(any(), any());
+        verify(emailAccountRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenGmailProviderUsesNonGmailDomain() {
+        CreateEmailAccountRequest request = new CreateEmailAccountRequest(
+                "sender@example.com",
+                EmailProvider.GMAIL,
+                EmailAuthType.APP_PASSWORD,
+                "encrypted-password",
+                null
+        );
+
+        InvalidEmailAccountException exception = assertThrows(
+                InvalidEmailAccountException.class,
+                () -> emailAccountService.createEmailAccount(1L, request)
+        );
+
+        assertEquals("GMAIL provider requires a gmail.com sender email.", exception.getMessage());
+        verify(emailAccountRepository, never()).existsByUserIdAndSenderEmail(any(), any());
+        verify(emailAccountRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenOutlookProviderUsesUnsupportedDomain() {
+        CreateEmailAccountRequest request = new CreateEmailAccountRequest(
+                "sender@gmail.com",
+                EmailProvider.OUTLOOK,
+                EmailAuthType.APP_PASSWORD,
+                "encrypted-password",
+                null
+        );
+
+        InvalidEmailAccountException exception = assertThrows(
+                InvalidEmailAccountException.class,
+                () -> emailAccountService.createEmailAccount(1L, request)
+        );
+
+        assertEquals("OUTLOOK provider requires an outlook.com, hotmail.com, or live.com sender email.", exception.getMessage());
+        verify(emailAccountRepository, never()).existsByUserIdAndSenderEmail(any(), any());
+        verify(emailAccountRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenAppPasswordAuthHasNoEncryptedPassword() {
+        CreateEmailAccountRequest request = new CreateEmailAccountRequest(
+                "sender@gmail.com",
+                EmailProvider.GMAIL,
+                EmailAuthType.APP_PASSWORD,
+                " ",
+                null
+        );
+
+        InvalidEmailAccountException exception = assertThrows(
+                InvalidEmailAccountException.class,
+                () -> emailAccountService.createEmailAccount(1L, request)
+        );
+
+        assertEquals("Encrypted app password is required for APP_PASSWORD authentication.", exception.getMessage());
+        verify(emailAccountRepository, never()).existsByUserIdAndSenderEmail(any(), any());
+        verify(emailAccountRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenOauthAuthHasNoMetadata() {
+        CreateEmailAccountRequest request = new CreateEmailAccountRequest(
+                "sender@gmail.com",
+                EmailProvider.GMAIL,
+                EmailAuthType.OAUTH,
+                null,
+                null
+        );
+
+        InvalidEmailAccountException exception = assertThrows(
+                InvalidEmailAccountException.class,
+                () -> emailAccountService.createEmailAccount(1L, request)
+        );
+
+        assertEquals("OAuth metadata is required for OAUTH authentication.", exception.getMessage());
+        verify(emailAccountRepository, never()).existsByUserIdAndSenderEmail(any(), any());
+        verify(emailAccountRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldAllowSmtpProviderWithCustomDomain() {
+        CreateEmailAccountRequest request = new CreateEmailAccountRequest(
+                "sender@example.com",
+                EmailProvider.SMTP,
+                EmailAuthType.APP_PASSWORD,
+                "encrypted-password",
+                null
+        );
+
+        when(emailAccountRepository.existsByUserIdAndSenderEmail(1L, "sender@example.com")).thenReturn(false);
+        when(emailAccountRepository.save(any(EmailAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmailAccountResponse response = emailAccountService.createEmailAccount(1L, request);
+
+        assertEquals("sender@example.com", response.getSenderEmail());
+        assertEquals(EmailProvider.SMTP, response.getProvider());
+    }
+
+    @Test
     void shouldListEmailAccountsWithStatusFilter() {
         EmailAccount emailAccount = emailAccount(10L, 1L, "sender@gmail.com", EmailAccountStatus.ACTIVE);
 
@@ -134,7 +254,7 @@ public class EmailAccountServiceTest {
     void shouldUpdateEmailAccount() {
         EmailAccount emailAccount = emailAccount(10L, 1L, "old@gmail.com", EmailAccountStatus.ACTIVE);
         UpdateEmailAccountRequest request = new UpdateEmailAccountRequest(
-                "new@gmail.com",
+                "new@outlook.com",
                 EmailProvider.OUTLOOK,
                 EmailAuthType.OAUTH,
                 "new-encrypted-password",
@@ -143,16 +263,40 @@ public class EmailAccountServiceTest {
         );
 
         when(emailAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(emailAccount));
-        when(emailAccountRepository.existsByUserIdAndSenderEmail(1L, "new@gmail.com")).thenReturn(false);
+        when(emailAccountRepository.existsByUserIdAndSenderEmail(1L, "new@outlook.com")).thenReturn(false);
         when(emailAccountRepository.save(any(EmailAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         EmailAccountResponse response = emailAccountService.updateEmailAccount(1L, 10L, request);
 
-        assertEquals("new@gmail.com", response.getSenderEmail());
+        assertEquals("new@outlook.com", response.getSenderEmail());
         assertEquals(EmailProvider.OUTLOOK, response.getProvider());
         assertEquals(EmailAuthType.OAUTH, response.getAuthType());
         assertEquals(EmailAccountStatus.INACTIVE, response.getStatus());
         assertEquals("{\"region\":\"us\"}", response.getMetadata());
+    }
+
+    @Test
+    void shouldValidateEmailAccountWhenUpdating() {
+        EmailAccount emailAccount = emailAccount(10L, 1L, "old@gmail.com", EmailAccountStatus.ACTIVE);
+        UpdateEmailAccountRequest request = new UpdateEmailAccountRequest(
+                "new@example.com",
+                EmailProvider.GMAIL,
+                EmailAuthType.APP_PASSWORD,
+                "encrypted-password",
+                EmailAccountStatus.ACTIVE,
+                null
+        );
+
+        when(emailAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(emailAccount));
+
+        InvalidEmailAccountException exception = assertThrows(
+                InvalidEmailAccountException.class,
+                () -> emailAccountService.updateEmailAccount(1L, 10L, request)
+        );
+
+        assertEquals("GMAIL provider requires a gmail.com sender email.", exception.getMessage());
+        verify(emailAccountRepository, never()).existsByUserIdAndSenderEmail(any(), any());
+        verify(emailAccountRepository, never()).save(any());
     }
 
     @Test
