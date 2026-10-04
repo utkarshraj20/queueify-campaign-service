@@ -6,6 +6,7 @@ import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsEx
 import com.queueify.campaignservice.common.dto.ValidationError;
 import com.queueify.campaignservice.emailaccount.exception.DuplicateEmailAccountException;
 import com.queueify.campaignservice.emailaccount.exception.EmailAccountNotFoundException;
+import com.queueify.campaignservice.emailaccount.exception.InvalidEmailAccountException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -68,6 +69,21 @@ public class GlobalExceptionHandler {
         );
 
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(InvalidEmailAccountException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidEmailAccount(InvalidEmailAccountException exception, HttpServletRequest request){
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                List.of(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                Instant.now()
+        );
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler({InvalidCredentialsException.class, InvalidRefreshTokenException.class})
