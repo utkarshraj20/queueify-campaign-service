@@ -3,6 +3,7 @@ package com.queueify.campaignservice.integration;
 import com.queueify.campaignservice.authentication.jwt.JwtService;
 import com.queueify.campaignservice.authentication.service.AuthService;
 import com.queueify.campaignservice.authentication.service.RefreshTokenService;
+import com.queueify.campaignservice.campaign.service.CampaignService;
 import com.queueify.campaignservice.emailaccount.service.EmailAccountService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,9 @@ class SecurityIntegrationTest {
 
     @MockitoBean
     private EmailAccountService emailAccountService;
+
+    @MockitoBean
+    private CampaignService campaignService;
 
     @Test
     void allowsAnonymousAccessToLoginEndpoint() throws Exception {
