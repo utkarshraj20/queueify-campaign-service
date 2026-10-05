@@ -1,5 +1,7 @@
 package com.queueify.campaignservice.common.exception;
 
+import com.queueify.campaignservice.campaign.exception.CampaignNotFoundException;
+import com.queueify.campaignservice.campaign.exception.InvalidCampaignException;
 import com.queueify.campaignservice.authentication.exception.InvalidCredentialsException;
 import com.queueify.campaignservice.authentication.exception.InvalidRefreshTokenException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
@@ -71,8 +73,38 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(CampaignNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCampaignNotFound(CampaignNotFoundException exception, HttpServletRequest request){
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                List.of(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                Instant.now()
+        );
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(InvalidEmailAccountException.class)
     public ResponseEntity<ErrorResponse> handleInvalidEmailAccount(InvalidEmailAccountException exception, HttpServletRequest request){
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                List.of(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                Instant.now()
+        );
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InvalidCampaignException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCampaign(InvalidCampaignException exception, HttpServletRequest request){
 
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
