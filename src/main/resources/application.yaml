@@ -48,3 +48,10 @@ jwt:
   secret: 5367566859703373367639792F423F452848284D6251655468576D5A71347437
   access-token-expiration: 900000
   refresh-token-expiration: 604800000
+
+queueify:
+  aws:
+    s3:
+      bucket: ${QUEUEIFY_S3_BUCKET:queueify-campaign-assets-local}
+      region: ${AWS_REGION:ap-southeast-2}
+      base-prefix: ${QUEUEIFY_S3_BASE_PREFIX:campaign-assets}
