@@ -17,6 +17,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import com.queueify.campaignservice.campaign.entity.CampaignOutboxEvent;
+import com.queueify.campaignservice.campaign.repository.CampaignOutboxEventRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,10 +31,15 @@ public class CampaignService {
 
     private final CampaignRepository campaignRepository;
     private final EmailAccountRepository emailAccountRepository;
+    private final CampaignOutboxEventRepository campaignOutboxEventRepository;
 
-    public CampaignService(CampaignRepository campaignRepository, EmailAccountRepository emailAccountRepository) {
+    public CampaignService(
+            CampaignRepository campaignRepository,
+            EmailAccountRepository emailAccountRepository,
+            CampaignOutboxEventRepository campaignOutboxEventRepository) {
         this.campaignRepository = campaignRepository;
         this.emailAccountRepository = emailAccountRepository;
+        this.campaignOutboxEventRepository = campaignOutboxEventRepository;
     }
 
     public CampaignResponse createCampaign(Long userId, CreateCampaignRequest request) {
@@ -163,5 +171,59 @@ public class CampaignService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+
+    private void validateCampaignCanBeStarted(Campaign campaign) {
+        if (campaign.getStatus() != CampaignStatus.DRAFT) {
+            throw new InvalidCampaignException(
+                    "Only draft campaigns can be started."
+            );
+        }
+
+        if (isBlank(campaign.getSubject())
+                || isBlank(campaign.getTemplateUrl())
+                || isBlank(campaign.getCsvUrl())) {
+            throw new InvalidCampaignException(
+                    "Campaign requires a subject, template URL, and CSV URL."
+            );
+        }
+
+        if (campaign.getTotalEmails() == null
+                || campaign.getTotalEmails() <= 0) {
+            throw new InvalidCampaignException(
+                    "Campaign must contain at least one recipient."
+            );
+        }
+
+        validateActiveSenderAccount(
+                campaign.getUserId(),
+                campaign.getSenderEmailAccountId()
+        );
+    }
+
+    @Transactional
+    public CampaignResponse startCampaign(Long userId, Long campaignId) {
+        Campaign campaign = campaignRepository
+                .findByIdAndUserIdForUpdate(campaignId, userId)
+                .orElseThrow(() ->
+                        new CampaignNotFoundException("Campaign not found."));
+
+        if (campaign.getStatus() == CampaignStatus.RUNNING) {
+            return CampaignResponse.from(campaign);
+        }
+
+        validateCampaignCanBeStarted(campaign);
+
+        LocalDateTime now = LocalDateTime.now();
+        campaign.setStatus(CampaignStatus.RUNNING);
+        campaign.setUpdatedAt(now);
+
+        campaignOutboxEventRepository.save(
+                CampaignOutboxEvent.startRequested(
+                        campaign.getId(), userId, now)
+        );
+
+        return CampaignResponse.from(campaign);
     }
 }

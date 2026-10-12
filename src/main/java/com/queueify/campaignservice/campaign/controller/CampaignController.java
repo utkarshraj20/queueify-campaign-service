@@ -12,6 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import com.queueify.campaignservice.authentication.repository.UserRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ResponseStatusException;
 
 @Validated
 @RestController
@@ -20,10 +23,14 @@ public class CampaignController {
 
     private final CampaignService campaignService;
 
-    public CampaignController(CampaignService campaignService) {
-        this.campaignService = campaignService;
-    }
+    private final UserRepository userRepository;
 
+    public CampaignController(
+            CampaignService campaignService,
+            UserRepository userRepository) {
+        this.campaignService = campaignService;
+        this.userRepository = userRepository;
+    }
     @PostMapping
     public ResponseEntity<CampaignResponse> createCampaign(
             @PathVariable @Min(1) Long userId,
@@ -70,5 +77,30 @@ public class CampaignController {
     ) {
         campaignService.deleteCampaign(userId, campaignId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{campaignId}/start")
+    public ResponseEntity<CampaignResponse> startCampaign(
+            @PathVariable @Min(1) Long userId,
+            @PathVariable @Min(1) Long campaignId,
+            Authentication authentication
+    ) {
+        if (authentication == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+
+        Long authenticatedUserId = userRepository
+                .findByEmail(authentication.getName())
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED))
+                .getId();
+
+        if (!authenticatedUserId.equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+
+        return ResponseEntity.ok(
+                campaignService.startCampaign(authenticatedUserId, campaignId)
+        );
     }
 }

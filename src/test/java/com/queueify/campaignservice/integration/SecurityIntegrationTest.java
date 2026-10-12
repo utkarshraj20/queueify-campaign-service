@@ -1,6 +1,8 @@
 package com.queueify.campaignservice.integration;
 
 import com.queueify.campaignservice.authentication.jwt.JwtService;
+import com.queueify.campaignservice.authentication.entity.User;
+import com.queueify.campaignservice.authentication.repository.UserRepository;
 import com.queueify.campaignservice.authentication.service.AuthService;
 import com.queueify.campaignservice.authentication.service.RefreshTokenService;
 import com.queueify.campaignservice.campaign.service.CampaignService;
@@ -12,6 +14,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Optional;
+
+import static org.mockito.Mockito.*;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,6 +54,44 @@ class SecurityIntegrationTest {
 
     @MockitoBean
     private CampaignService campaignService;
+
+    @MockitoBean
+    private UserRepository userRepository;
+
+    @Test
+    void rejectsAnonymousCampaignStart() throws Exception {
+        mockMvc.perform(post("/api/v1/users/1/campaigns/10/start"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(campaignService);
+    }
+
+    @Test
+    void acceptsCampaignStartForJwtOwner() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        String token = jwtService.generateAccessToken("owner@example.com");
+
+        mockMvc.perform(post("/api/v1/users/1/campaigns/10/start")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        verify(campaignService).startCampaign(1L, 10L);
+    }
+
+    @Test
+    void rejectsCampaignStartForAnotherUsersPath() throws Exception {
+        User user = new User();
+        user.setId(2L);
+        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        String token = jwtService.generateAccessToken("owner@example.com");
+
+        mockMvc.perform(post("/api/v1/users/1/campaigns/10/start")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(campaignService);
+    }
 
     @Test
     void allowsAnonymousAccessToLoginEndpoint() throws Exception {
