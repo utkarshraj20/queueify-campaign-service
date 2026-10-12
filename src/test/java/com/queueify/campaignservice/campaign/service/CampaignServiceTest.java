@@ -5,10 +5,12 @@ import com.queueify.campaignservice.campaign.dto.CampaignResponse;
 import com.queueify.campaignservice.campaign.dto.CreateCampaignRequest;
 import com.queueify.campaignservice.campaign.dto.UpdateCampaignRequest;
 import com.queueify.campaignservice.campaign.entity.Campaign;
+import com.queueify.campaignservice.campaign.entity.CampaignOutboxEvent;
 import com.queueify.campaignservice.campaign.entity.CampaignStatus;
 import com.queueify.campaignservice.campaign.exception.CampaignNotFoundException;
 import com.queueify.campaignservice.campaign.exception.InvalidCampaignException;
 import com.queueify.campaignservice.campaign.repository.CampaignRepository;
+import com.queueify.campaignservice.campaign.repository.CampaignOutboxEventRepository;
 import com.queueify.campaignservice.emailaccount.entity.EmailAccount;
 import com.queueify.campaignservice.emailaccount.entity.EmailAccountStatus;
 import com.queueify.campaignservice.emailaccount.entity.EmailAuthType;
@@ -16,6 +18,9 @@ import com.queueify.campaignservice.emailaccount.entity.EmailProvider;
 import com.queueify.campaignservice.emailaccount.repository.EmailAccountRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -26,6 +31,8 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,6 +46,9 @@ public class CampaignServiceTest {
 
     @Mock
     private EmailAccountRepository emailAccountRepository;
+
+    @Mock
+    private CampaignOutboxEventRepository campaignOutboxEventRepository;
 
     @InjectMocks
     private CampaignService campaignService;
@@ -229,6 +239,148 @@ public class CampaignServiceTest {
 
         assertEquals("Running campaigns cannot be deleted.", exception.getMessage());
         verify(campaignRepository, never()).delete(any());
+    }
+
+    @Test
+    void shouldStartDraftCampaignAndRecordPendingEvent() {
+        Campaign campaign = campaign(10L, 1L, CampaignStatus.DRAFT);
+        campaign.setUpdatedAt(LocalDateTime.now().minusDays(1));
+        LocalDateTime previousUpdate = campaign.getUpdatedAt();
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+        when(emailAccountRepository.findByIdAndUserId(5L, 1L))
+                .thenReturn(Optional.of(emailAccount(EmailAccountStatus.ACTIVE)));
+
+        CampaignResponse response = campaignService.startCampaign(1L, 10L);
+
+        assertEquals(CampaignStatus.RUNNING, response.getStatus());
+        assertEquals(10L, response.getId());
+        assertTrue(campaign.getUpdatedAt().isAfter(previousUpdate));
+        assertEquals(0, campaign.getEmailsSent());
+        assertEquals(0, campaign.getEmailsFailed());
+        ArgumentCaptor<CampaignOutboxEvent> captor = ArgumentCaptor.forClass(CampaignOutboxEvent.class);
+        verify(campaignOutboxEventRepository).save(captor.capture());
+        CampaignOutboxEvent event = captor.getValue();
+        assertEquals(10L, event.getCampaignId());
+        assertEquals(1L, event.getUserId());
+        assertEquals(CampaignOutboxEvent.EventType.CAMPAIGN_START_REQUESTED, event.getEventType());
+        assertEquals(CampaignOutboxEvent.Status.PENDING, event.getStatus());
+        assertEquals(campaign.getUpdatedAt(), event.getCreatedAt());
+        assertNull(event.getPublishedAt());
+    }
+
+    @Test
+    void shouldRecordOnlyOneEventWhenStartIsRetried() {
+        Campaign campaign = campaign(10L, 1L, CampaignStatus.DRAFT);
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+        when(emailAccountRepository.findByIdAndUserId(5L, 1L))
+                .thenReturn(Optional.of(emailAccount(EmailAccountStatus.ACTIVE)));
+
+        campaignService.startCampaign(1L, 10L);
+        LocalDateTime firstUpdate = campaign.getUpdatedAt();
+        CampaignResponse retryResponse = campaignService.startCampaign(1L, 10L);
+
+        assertEquals(CampaignStatus.RUNNING, retryResponse.getStatus());
+        assertEquals(firstUpdate, campaign.getUpdatedAt());
+        verify(campaignOutboxEventRepository, times(1)).save(any(CampaignOutboxEvent.class));
+        verify(emailAccountRepository, times(1)).findByIdAndUserId(5L, 1L);
+    }
+
+    @Test
+    void shouldReturnAlreadyRunningCampaignWithoutRevalidatingOrEnqueuing() {
+        Campaign campaign = campaign(10L, 1L, CampaignStatus.RUNNING);
+        LocalDateTime previousUpdate = campaign.getUpdatedAt();
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+
+        CampaignResponse response = campaignService.startCampaign(1L, 10L);
+
+        assertEquals(CampaignStatus.RUNNING, response.getStatus());
+        assertEquals(previousUpdate, campaign.getUpdatedAt());
+        verifyNoInteractions(emailAccountRepository, campaignOutboxEventRepository);
+    }
+
+    @Test
+    void shouldRejectStartWhenCampaignIsMissingOrOwnedByAnotherUser() {
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.empty());
+
+        assertThrows(CampaignNotFoundException.class, () -> campaignService.startCampaign(1L, 10L));
+
+        verifyNoInteractions(emailAccountRepository, campaignOutboxEventRepository);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CampaignStatus.class,
+            names = {"PAUSED", "COMPLETED", "COMPLETED_WITH_FAILURES", "FAILED"})
+    void shouldRejectStartingNonDraftCampaign(CampaignStatus status) {
+        Campaign campaign = campaign(10L, 1L, status);
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+
+        assertThrows(InvalidCampaignException.class, () -> campaignService.startCampaign(1L, 10L));
+
+        assertEquals(status, campaign.getStatus());
+        verifyNoInteractions(emailAccountRepository, campaignOutboxEventRepository);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidStartDetails")
+    void shouldRejectStartingCampaignWithInvalidDetails(Consumer<Campaign> invalidate) {
+        Campaign campaign = campaign(10L, 1L, CampaignStatus.DRAFT);
+        invalidate.accept(campaign);
+        LocalDateTime previousUpdate = campaign.getUpdatedAt();
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+
+        assertThrows(InvalidCampaignException.class, () -> campaignService.startCampaign(1L, 10L));
+
+        assertEquals(CampaignStatus.DRAFT, campaign.getStatus());
+        assertEquals(previousUpdate, campaign.getUpdatedAt());
+        verifyNoInteractions(emailAccountRepository, campaignOutboxEventRepository);
+    }
+
+    private static Stream<Consumer<Campaign>> invalidStartDetails() {
+        return Stream.of(
+                c -> c.setSubject(null), c -> c.setSubject(""), c -> c.setSubject(" "),
+                c -> c.setTemplateUrl(null), c -> c.setTemplateUrl(""), c -> c.setTemplateUrl(" "),
+                c -> c.setCsvUrl(null), c -> c.setCsvUrl(""), c -> c.setCsvUrl(" "),
+                c -> c.setTotalEmails(null), c -> c.setTotalEmails(0), c -> c.setTotalEmails(-1)
+        );
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EmailAccountStatus.class, names = "ACTIVE", mode = EnumSource.Mode.EXCLUDE)
+    void shouldRejectStartWhenSenderIsInactive(EmailAccountStatus status) {
+        Campaign campaign = campaign(10L, 1L, CampaignStatus.DRAFT);
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+        when(emailAccountRepository.findByIdAndUserId(5L, 1L))
+                .thenReturn(Optional.of(emailAccount(status)));
+
+        assertThrows(InvalidCampaignException.class, () -> campaignService.startCampaign(1L, 10L));
+
+        assertEquals(CampaignStatus.DRAFT, campaign.getStatus());
+        verifyNoInteractions(campaignOutboxEventRepository);
+    }
+
+    @Test
+    void shouldRejectStartWhenSenderDoesNotBelongToUser() {
+        Campaign campaign = campaign(10L, 1L, CampaignStatus.DRAFT);
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+        when(emailAccountRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.empty());
+
+        assertThrows(InvalidCampaignException.class, () -> campaignService.startCampaign(1L, 10L));
+
+        assertEquals(CampaignStatus.DRAFT, campaign.getStatus());
+        verifyNoInteractions(campaignOutboxEventRepository);
+    }
+
+    @Test
+    void shouldPropagateOutboxFailureToTransactionBoundary() {
+        Campaign campaign = campaign(10L, 1L, CampaignStatus.DRAFT);
+        when(campaignRepository.findByIdAndUserIdForUpdate(10L, 1L)).thenReturn(Optional.of(campaign));
+        when(emailAccountRepository.findByIdAndUserId(5L, 1L))
+                .thenReturn(Optional.of(emailAccount(EmailAccountStatus.ACTIVE)));
+        RuntimeException failure = new RuntimeException("Database unavailable");
+        when(campaignOutboxEventRepository.save(any(CampaignOutboxEvent.class))).thenThrow(failure);
+
+        assertSame(failure, assertThrows(RuntimeException.class,
+                () -> campaignService.startCampaign(1L, 10L)));
     }
 
     private CreateCampaignRequest createRequest() {
