@@ -9,6 +9,7 @@ import com.queueify.campaignservice.campaign.service.CampaignService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +32,7 @@ public class CampaignController {
         this.campaignService = campaignService;
         this.userRepository = userRepository;
     }
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<CampaignResponse> createCampaign(
             @PathVariable @Min(1) Long userId,
             @Valid @RequestBody CreateCampaignRequest request

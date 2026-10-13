@@ -7,6 +7,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -20,6 +21,8 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -36,6 +39,33 @@ class S3StorageServiceTest {
         S3Properties s3Properties = s3Properties();
         S3KeyBuilder s3KeyBuilder = new S3KeyBuilder(s3Properties);
         s3StorageService = new S3StorageService(s3Client, s3Properties, s3KeyBuilder);
+    }
+
+    @Test
+    void uploadsTemplateWithCanonicalContentTypeAndOriginalBytes() throws IOException {
+        var file = new MockMultipartFile("file", "welcome.html", "application/octet-stream", "<p>Hello</p>".getBytes());
+
+        StoredFile result = s3StorageService.uploadCampaignAsset(2L, CampaignAssetType.TEMPLATE, file);
+
+        var request = ArgumentCaptor.forClass(PutObjectRequest.class);
+        var body = ArgumentCaptor.forClass(RequestBody.class);
+        verify(s3Client).putObject(request.capture(), body.capture());
+        assertEquals("text/html; charset=UTF-8", request.getValue().contentType());
+        assertEquals(file.getSize(), request.getValue().contentLength());
+        assertTrue(result.getKey().startsWith("campaign-assets/users/2/uploads/templates/"));
+        assertEquals("text/html; charset=UTF-8", result.getContentType());
+        try (var stream = body.getValue().contentStreamProvider().newStream()) {
+            assertArrayEquals(file.getBytes(), stream.readAllBytes());
+        }
+    }
+
+    @Test
+    void wrapsMissingCredentialsAndOtherSdkClientFailures() {
+        var file = new MockMultipartFile("file", "leads.csv", "text/csv", "email\ntest@example.com".getBytes());
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenThrow(SdkClientException.create("Missing credentials"));
+        assertThrows(StorageException.class,
+                () -> s3StorageService.uploadCampaignAsset(2L, CampaignAssetType.RECIPIENTS, file));
     }
 
     @Test

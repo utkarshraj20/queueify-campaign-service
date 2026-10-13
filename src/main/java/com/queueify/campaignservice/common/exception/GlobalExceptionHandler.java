@@ -6,6 +6,9 @@ import com.queueify.campaignservice.authentication.exception.InvalidCredentialsE
 import com.queueify.campaignservice.authentication.exception.InvalidRefreshTokenException;
 import com.queueify.campaignservice.authentication.exception.UserAlreadyExistsException;
 import com.queueify.campaignservice.common.dto.ValidationError;
+import com.queueify.campaignservice.storage.InvalidUploadException;
+import com.queueify.campaignservice.storage.StorageException;
+import com.queueify.campaignservice.storage.UploadTooLargeException;
 import com.queueify.campaignservice.emailaccount.exception.DuplicateEmailAccountException;
 import com.queueify.campaignservice.emailaccount.exception.EmailAccountNotFoundException;
 import com.queueify.campaignservice.emailaccount.exception.InvalidEmailAccountException;
@@ -20,6 +23,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,6 +32,33 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(InvalidUploadException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidUpload(InvalidUploadException exception, HttpServletRequest request) {
+        return uploadError(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingFile(MissingServletRequestPartException exception, HttpServletRequest request) {
+        return uploadError(HttpStatus.BAD_REQUEST, "Select a file to upload.", request);
+    }
+
+    @ExceptionHandler({UploadTooLargeException.class, MaxUploadSizeExceededException.class})
+    public ResponseEntity<ErrorResponse> handleOversizedUpload(Exception exception, HttpServletRequest request) {
+        String message = exception instanceof UploadTooLargeException ? exception.getMessage()
+                : "The upload exceeds the 25 MB file or 27 MB request limit.";
+        return uploadError(HttpStatus.PAYLOAD_TOO_LARGE, message, request);
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorageFailure(StorageException exception, HttpServletRequest request) {
+        return uploadError(HttpStatus.SERVICE_UNAVAILABLE, "File storage is unavailable. Please try again.", request);
+    }
+
+    private ResponseEntity<ErrorResponse> uploadError(HttpStatus status, String message, HttpServletRequest request) {
+        return ResponseEntity.status(status).body(new ErrorResponse(status.value(), List.of(),
+                status.getReasonPhrase(), message, request.getRequestURI(), Instant.now()));
+    }
+
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleUserAlreadyExists(UserAlreadyExistsException exception, HttpServletRequest request){
 
