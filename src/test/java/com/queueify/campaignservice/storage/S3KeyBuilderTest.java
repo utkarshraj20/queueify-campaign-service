@@ -3,8 +3,20 @@ package com.queueify.campaignservice.storage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class S3KeyBuilderTest {
+    @Test
+    void buildsUniqueOwnerScopedAssetKeysAndSanitizesPaths() {
+        S3KeyBuilder builder = new S3KeyBuilder(s3Properties("/campaign-assets/"));
+        String first = builder.campaignAssetKey(2L, CampaignAssetType.TEMPLATE, "../../Welcome @ Oct.html");
+        String second = builder.campaignAssetKey(2L, CampaignAssetType.TEMPLATE, "../../Welcome @ Oct.html");
+        assertTrue(first.matches("campaign-assets/users/2/uploads/templates/[a-f0-9-]{36}-Welcome___Oct.html"));
+        assertNotEquals(first, second);
+        assertTrue(builder.campaignAssetKey(2L, CampaignAssetType.RECIPIENTS, "C:\\fakepath\\leads.csv")
+                .matches("campaign-assets/users/2/uploads/recipients/[a-f0-9-]{36}-leads.csv"));
+    }
+
 
     @Test
     void shouldBuildCampaignInputCsvKey() {

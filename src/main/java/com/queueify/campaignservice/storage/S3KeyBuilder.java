@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 @Component
 public class S3KeyBuilder {
@@ -27,6 +28,12 @@ public class S3KeyBuilder {
                 + "/users/" + userId
                 + "/campaigns/" + campaignId
                 + "/input/" + timestamp + "-" + safeFilename;
+    }
+
+    public String campaignAssetKey(Long userId, CampaignAssetType type, String originalFilename) {
+        return cleanPrefix(s3Properties.getBasePrefix())
+                + "/users/" + userId + "/uploads/" + type.getDirectory()
+                + "/" + UUID.randomUUID() + "-" + sanitizeFilename(originalFilename);
     }
 
     private String sanitizeFilename(String filename){

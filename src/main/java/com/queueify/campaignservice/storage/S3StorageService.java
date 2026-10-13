@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
@@ -27,26 +28,37 @@ public class S3StorageService {
     }
 
     private StoredFile upload(String key, MultipartFile file) {
-        try{
+        return upload(key, file, file.getContentType());
+    }
+
+    public StoredFile uploadCampaignAsset(Long userId, CampaignAssetType type, MultipartFile file) {
+        String key = s3KeyBuilder.campaignAssetKey(userId, type, file.getOriginalFilename());
+        return upload(key, file, type.contentType(file.getOriginalFilename()));
+    }
+
+    private StoredFile upload(String key, MultipartFile file, String contentType) {
+        try (var input = file.getInputStream()) {
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(s3Properties.getBucket())
                     .key(key)
-                    .contentType(file.getContentType())
+                    .contentType(contentType)
                     .contentLength(file.getSize())
                     .build();
 
-            s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            s3Client.putObject(request, RequestBody.fromInputStream(input, file.getSize()));
 
             return new StoredFile(
                     s3Properties.getBucket(),
                     key,
-                    file.getContentType(),
+                    contentType,
                     file.getSize()
             );
         }catch (IOException exception) {
             throw new StorageException("Failed to read file for S3 upload.", exception);
         } catch (S3Exception exception) {
             throw new StorageException("Failed to upload file to S3.", exception);
+        } catch (SdkClientException exception) {
+            throw new StorageException("Failed to connect to file storage.", exception);
         }
     }
 

@@ -2,6 +2,11 @@ spring:
   application:
     name: queueify-campaign-service
 
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 27MB
+
   datasource:
     url: jdbc:mysql://localhost:3306/queueify
     username: root
