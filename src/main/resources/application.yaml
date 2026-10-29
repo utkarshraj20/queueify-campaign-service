@@ -7,6 +7,17 @@ spring:
       max-file-size: 25MB
       max-request-size: 27MB
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
   datasource:
     url: jdbc:mysql://localhost:3306/queueify
     username: root
@@ -55,6 +66,10 @@ jwt:
   refresh-token-expiration: 604800000
 
 queueify:
+  processor-start:
+    enabled: ${CAMPAIGN_START_BRIDGE_ENABLED:false}
+    topic: ${KAFKA_START_TOPIC:campaign-start-topic}
+    poll-ms: 2000
   aws:
     s3:
       bucket: ${QUEUEIFY_S3_BUCKET:queueify-campaign-assets-local}
