@@ -73,6 +73,7 @@ queueify:
   internal:
     campaign-api:
       enabled: ${CAMPAIGN_CONTEXT_API_ENABLED:false}
+      sender-credentials-enabled: ${CAMPAIGN_SENDER_CREDENTIALS_ENABLED:false}
       token: ${QUEUEIFY_INTERNAL_CAMPAIGN_TOKEN:}
   processor-start:
     enabled: ${CAMPAIGN_START_BRIDGE_ENABLED:false}
