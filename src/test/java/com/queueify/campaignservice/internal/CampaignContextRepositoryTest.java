@@ -12,9 +12,9 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.containers.MySQLContainer;
 import static org.assertj.core.api.Assertions.*;
 
-@JdbcTest(properties={"queueify.internal.campaign-api.enabled=true","queueify.aws.s3.bucket=assets"})
+@JdbcTest(properties={"queueify.internal.campaign-api.enabled=true","queueify.internal.campaign-api.sender-credentials-enabled=true","queueify.aws.s3.bucket=assets"})
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({CampaignContextRepository.class,CampaignContextRepositoryTest.Storage.class})
+@Import({SenderCredentialRepository.class,CampaignContextRepository.class,CampaignContextRepositoryTest.Storage.class})
 class CampaignContextRepositoryTest {
     static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4");
     static { MYSQL.start(); }
@@ -27,6 +27,7 @@ class CampaignContextRepositoryTest {
     }
     @Autowired JdbcTemplate jdbc;
     @Autowired CampaignContextRepository repository;
+    @Autowired SenderCredentialRepository senders;
     @BeforeEach void seed() {
         jdbc.update("INSERT INTO users VALUES (5,'Test','test@example.com','hash',NOW(),NOW())");
         jdbc.update("INSERT INTO users VALUES (6,'Other','other@example.com','hash',NOW(),NOW())");
@@ -41,6 +42,23 @@ class CampaignContextRepositoryTest {
                     1,0,0,'RUNNING',9,NOW(),NOW())
                 """);
     }
+    @Test void credentialQueryChecksCampaignSenderIdentityAndSupportedAuthentication() {
+        jdbc.update("UPDATE email_accounts SET sender_email='sender@gmail.com'");
+        assertThat(senders.find(999)).isEmpty();
+        var sender=senders.find(42).orElseThrow();
+        assertThat(sender.senderId()).isEqualTo(9);
+        assertThat(sender.envelope()).isEqualTo("not-returned");
+        assertThat(sender.eligible()).isTrue();
+        for (String sql : new String[]{"UPDATE campaigns SET status='PAUSED'", "UPDATE email_accounts SET status='INACTIVE'",
+                "UPDATE email_accounts SET user_id=6", "UPDATE email_accounts SET auth_type='OAUTH'",
+                "UPDATE email_accounts SET provider='SMTP'"}) {
+            jdbc.update(sql);
+            assertThat(senders.find(42).orElseThrow().eligible()).isFalse();
+            jdbc.update("UPDATE campaigns SET status='RUNNING'");
+            jdbc.update("UPDATE email_accounts SET status='ACTIVE',user_id=5,auth_type='APP_PASSWORD',provider='GMAIL'");
+        }
+    }
+
     @Test void loadsOnlyTheRequestedCampaignAndChecksReadEligibility() {
         assertThat(repository.find(999)).isEmpty();
         assertThat(repository.eligible(repository.find(42).orElseThrow())).isTrue();

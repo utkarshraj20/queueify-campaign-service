@@ -156,3 +156,28 @@ adopted. List/get responses continue to omit the credential field.
 This setting covers APP_PASSWORD only. Existing OAUTH/metadata behavior is
 unchanged and is not a supported encrypted OAuth credential flow. No delivery
 credential read API is available yet.
+
+### Internal Gmail sender credentials (KAN-68)
+
+`GET /internal/v1/campaigns/{campaignId}/sender-credentials` is available only
+when both `CAMPAIGN_CONTEXT_API_ENABLED=true` and
+`CAMPAIGN_SENDER_CREDENTIALS_ENABLED=true`. It uses the existing internal
+`QUEUEIFY_INTERNAL_CAMPAIGN_TOKEN`, not user JWTs. Enabling this route also
+requires `CREDENTIAL_ENCRYPTION_ENABLED=true` and its valid key; otherwise
+startup fails because the cipher is unavailable. All flags default off.
+
+The endpoint returns campaign/user/sender IDs, sender address, provider, auth
+type and decrypted appPassword, with no-store headers. It resolves the sender
+through the campaign, requires RUNNING/ACTIVE and matching ownership, and
+supports GMAIL + APP_PASSWORD only. Missing campaign returns 404; ineligible,
+legacy plaintext, corrupt or wrong-key credentials return 409 without details.
+Re-enter old passwords through account update with encryption enabled first.
+
+Use TLS outside direct loopback development. Cleartext non-loopback requests
+and cleartext requests bearing Forwarded/X-Forwarded headers are rejected.
+Do not expose this route publicly or enable request/response body logging;
+configure proxies/APM to exclude its secret response. The internal token now
+grants credential access when this flag is enabled, so distribute it only to
+Email Service. The checks are a read-time snapshot, not a delivery claim or
+atomic guarantee that a campaign stays RUNNING during a later SMTP send.
+Email Service does not call this endpoint yet. OAuth/custom SMTP are unsupported.

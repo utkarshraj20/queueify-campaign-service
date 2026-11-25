@@ -38,7 +38,8 @@ public class InternalCampaignSecurity {
         if(properties.enabled()) {
             http.addFilterBefore(new TokenFilter(properties.token()),UsernamePasswordAuthenticationFilter.class)
                     .authorizeHttpRequests(requests->requests
-                            .requestMatchers(HttpMethod.GET,"/internal/v1/campaigns/*/delivery-context").hasAuthority("INTERNAL_EMAIL")
+                            .requestMatchers(HttpMethod.GET,"/internal/v1/campaigns/*/delivery-context",
+                                    "/internal/v1/campaigns/*/sender-credentials").hasAuthority("INTERNAL_EMAIL")
                             .anyRequest().denyAll());
         } else {
             http.authorizeHttpRequests(requests->requests.anyRequest().denyAll());
