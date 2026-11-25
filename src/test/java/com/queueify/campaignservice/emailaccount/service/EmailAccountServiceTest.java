@@ -35,6 +35,9 @@ public class EmailAccountServiceTest {
     @Mock
     private EmailAccountRepository emailAccountRepository;
 
+    @Mock
+    private com.queueify.campaignservice.emailaccount.credential.CredentialStorage credentialStorage;
+
     @InjectMocks
     private EmailAccountService emailAccountService;
 
