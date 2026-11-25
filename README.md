@@ -115,3 +115,24 @@ This is a point-in-time metadata read, not a delivery claim. No sender credentia
 no status/counter changes occur, and no template file is downloaded by this endpoint.
 Email Service loads the referenced file separately. Provider credential access, durable delivery
 ownership/results, rendering and sending remain subsequent increments.
+
+### Sender credential encryption primitive (KAN-68)
+
+`CredentialCipher` provides a versioned `qcred:v1:` AES-256-GCM envelope using a
+fresh random 12-byte nonce per encryption and a 128-bit authentication tag.
+The owner user ID and credential purpose are authenticated alongside the data;
+moving an envelope to a different user fails decryption. This does not bind an
+envelope to an individual sender account within that user.
+
+The constructor requires a Base64-encoded 32-byte key supplied externally. No
+key is embedded, generated at startup, or configured by default. Password input
+is limited to 256 UTF-8 bytes so envelopes fit the existing 512-character column.
+Unknown versions, plaintext values, wrong keys and tampered envelopes fail closed.
+Errors omit credential values and underlying cryptographic exception details.
+
+This increment is a tested primitive only: account create/update still store the
+supplied value unchanged. No existing database values are migrated and no
+credential endpoint is exposed. Wiring encryption into writes, configuring key
+lifecycle and explicitly replacing or migrating existing credentials are required
+before claiming encrypted credential storage. Retain the encryption key securely;
+losing it prevents decryption. Java Strings cannot be reliably erased from memory.
