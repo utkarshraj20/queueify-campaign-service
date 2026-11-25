@@ -66,6 +66,10 @@ jwt:
   refresh-token-expiration: 604800000
 
 queueify:
+  credentials:
+    encryption:
+      enabled: ${CREDENTIAL_ENCRYPTION_ENABLED:false}
+      key: ${QUEUEIFY_CREDENTIAL_ENCRYPTION_KEY:}
   internal:
     campaign-api:
       enabled: ${CAMPAIGN_CONTEXT_API_ENABLED:false}

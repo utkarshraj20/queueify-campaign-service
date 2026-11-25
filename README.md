@@ -130,9 +130,29 @@ is limited to 256 UTF-8 bytes so envelopes fit the existing 512-character column
 Unknown versions, plaintext values, wrong keys and tampered envelopes fail closed.
 Errors omit credential values and underlying cryptographic exception details.
 
-This increment is a tested primitive only: account create/update still store the
-supplied value unchanged. No existing database values are migrated and no
-credential endpoint is exposed. Wiring encryption into writes, configuring key
-lifecycle and explicitly replacing or migrating existing credentials are required
-before claiming encrypted credential storage. Retain the encryption key securely;
+Account APP_PASSWORD create/update writes can now use this cipher through the
+opt-in configuration below. No existing database values are migrated and no
+credential endpoint is exposed. Key lifecycle and explicitly replacing existing
+credentials remain necessary. Retain the encryption key securely;
 losing it prevents decryption. Java Strings cannot be reliably erased from memory.
+
+### Enable encrypted app-password writes
+
+Set `CREDENTIAL_ENCRYPTION_ENABLED=true` and provide
+`QUEUEIFY_CREDENTIAL_ENCRYPTION_KEY` as a Base64-encoded random 32-byte key from
+your secret storage. Enabled mode refuses startup if the key is missing or invalid.
+Keep the same key across restarts; changing it cannot decrypt old envelopes.
+No key rotation or automatic migration is implemented.
+
+Default `false` retains legacy unencrypted writes for rollout compatibility;
+storage is **not encrypted** in this mode. After enabling, create/update requests
+for APP_PASSWORD encrypt before saving. The legacy JSON name
+`encryptedAppPassword` still means the user-supplied plaintext app password;
+server `qcred:` envelopes are rejected as input in both modes. Existing rows
+remain unchanged until the user re-enters a password through an update.
+Disabling encryption again resumes plaintext writes, so leave it enabled once
+adopted. List/get responses continue to omit the credential field.
+
+This setting covers APP_PASSWORD only. Existing OAUTH/metadata behavior is
+unchanged and is not a supported encrypted OAuth credential flow. No delivery
+credential read API is available yet.

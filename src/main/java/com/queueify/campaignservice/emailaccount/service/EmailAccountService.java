@@ -1,6 +1,7 @@
 package com.queueify.campaignservice.emailaccount.service;
 
 import com.queueify.campaignservice.emailaccount.dto.CreateEmailAccountRequest;
+import com.queueify.campaignservice.emailaccount.credential.CredentialStorage;
 import com.queueify.campaignservice.emailaccount.dto.EmailAccountPageResponse;
 import com.queueify.campaignservice.emailaccount.dto.EmailAccountResponse;
 import com.queueify.campaignservice.emailaccount.dto.UpdateEmailAccountRequest;
@@ -31,7 +32,10 @@ public class EmailAccountService {
 
     private final EmailAccountRepository emailAccountRepository;
 
-    public EmailAccountService(EmailAccountRepository emailAccountRepository) {
+    private final CredentialStorage credentialStorage;
+
+    public EmailAccountService(EmailAccountRepository emailAccountRepository, CredentialStorage credentialStorage) {
+        this.credentialStorage = credentialStorage;
         this.emailAccountRepository = emailAccountRepository;
     }
 
@@ -48,13 +52,14 @@ public class EmailAccountService {
             throw new DuplicateEmailAccountException("Email account already exists for this user.");
         }
 
+        String storedPassword = storedPassword(userId, request.getAuthType(), request.getEncryptedAppPassword());
         LocalDateTime now = LocalDateTime.now();
         EmailAccount emailAccount = new EmailAccount(
                 userId,
                 request.getSenderEmail(),
                 request.getProvider(),
                 request.getAuthType(),
-                request.getEncryptedAppPassword(),
+                storedPassword,
                 EmailAccountStatus.ACTIVE,
                 request.getMetadata(),
                 now,
@@ -106,10 +111,11 @@ public class EmailAccountService {
             throw new DuplicateEmailAccountException("Email account already exists for this user.");
         }
 
+        String storedPassword = storedPassword(userId, request.getAuthType(), request.getEncryptedAppPassword());
         emailAccount.setSenderEmail(request.getSenderEmail());
         emailAccount.setProvider(request.getProvider());
         emailAccount.setAuthType(request.getAuthType());
-        emailAccount.setEncryptedAppPassword(request.getEncryptedAppPassword());
+        emailAccount.setEncryptedAppPassword(storedPassword);
         emailAccount.setStatus(request.getStatus());
         emailAccount.setMetadata(request.getMetadata());
         emailAccount.setUpdatedAt(LocalDateTime.now());
@@ -182,6 +188,10 @@ public class EmailAccountService {
         if (authType == EmailAuthType.OAUTH && isBlank(metadata)) {
             throw new InvalidEmailAccountException("OAuth metadata is required for OAUTH authentication.");
         }
+    }
+
+    private String storedPassword(Long userId, EmailAuthType authType, String value) {
+        return authType == EmailAuthType.APP_PASSWORD ? credentialStorage.encode(userId, value) : value;
     }
 
     private boolean isBlank(String value) {
