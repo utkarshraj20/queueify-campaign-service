@@ -181,3 +181,50 @@ grants credential access when this flag is enabled, so distribute it only to
 Email Service. The checks are a read-time snapshot, not a delivery claim or
 atomic guarantee that a campaign stays RUNNING during a later SMTP send.
 Email Service does not call this endpoint yet. OAuth/custom SMTP are unsupported.
+
+### Campaign progress and completion (KAN-50)
+
+Set CAMPAIGN_PROGRESS_ENABLED=true, PROCESSOR_BASE_URL and
+QUEUEIFY_INTERNAL_TASK_TOKEN. Processor's task API must be enabled. Campaign
+Service polls immutable start-event run IDs, in rotating batches of 100 every
+5 seconds, then updates a local projection in a separate short transaction.
+The existing campaign GET/list responses expose the projected counts/status.
+No network call is made while holding the campaign row lock.
+
+READY preparation makes the CSV's actual valid row count authoritative. SENT
+counts mean provider acceptance. A campaign becomes COMPLETED only when every
+prepared task is SENT, or COMPLETED_WITH_FAILURES when all are SENT/FAILED and
+at least one failed. Uncertain/unfinished tasks cannot complete a campaign.
+BLOCKED/FAILED preparation becomes a visible campaign failure. Replayed or
+older snapshots cannot double-count, reduce counters or reopen a completed
+campaign. Missing/not-yet-created runs and dependency failures are retried on
+later polls; no projection acknowledgement can be lost permanently. Progress
+is eventually consistent, not a distributed transaction with sending.
+
+### Controlled local demo
+
+Build all three services with ./mvnw -B verify and install frontend dependencies.
+The existing frontend creation/start PR and KAN-50 frontend progress PR must be
+merged before using the updated UI. Configure a private shell env file (never
+commit it) with AWS_REGION, QUEUEIFY_S3_BUCKET, AWS_PROFILE or AWS access keys,
+QUEUEIFY_DEMO_ID, QUEUEIFY_DEMO_DB_PASSWORD, QUEUEIFY_CREDENTIAL_ENCRYPTION_KEY
+(Base64 random 32 bytes), and both internal tokens (32–256 URL-safe characters).
+Retain these keys across restarts. Use a Gmail app password when creating a sender;
+the request field encryptedAppPassword carries the user-entered value.
+
+Run `./scripts/start-local-demo.sh ~/.config/queueify/demo.env`. It uses dedicated
+MySQL databases on 13306/13307, topics/groups and S3 prefix keyed by DEMO_ID,
+backend ports 18080–18082 and frontend 15173. It reuses/starts only the existing
+local Kafka service, never scans the original databases for pending campaigns.
+No email is sent until a campaign is explicitly started. Ctrl+C stops its app
+processes and retains demo state; it never stops unrelated processes or deletes
+data. The only disabled health check is Campaign Service's unused legacy global
+mail sender, since Gmail delivery uses Email Service's per-account credentials.
+
+For the first live test, use a one-row CSV with exact header email plus optional
+Name, and a template such as <p>Hello {{Name}}</p>. Use only an authorised test
+recipient. Confirm terminal campaign status and 1 accepted/0 failed, then confirm
+inbox receipt separately. Do not blindly restart or resend uncertain work.
+Gmail-only delivery and manual reconciliation remain the MVP limits; operator
+reconciliation is tracked in KAN-69. No live AWS/Gmail success is claimed by
+the automated fixture tests.

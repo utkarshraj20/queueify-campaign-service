@@ -1,0 +1,30 @@
+services:
+  campaign-db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: queueify_demo
+      MYSQL_ROOT_PASSWORD: ${QUEUEIFY_DEMO_DB_PASSWORD:?Configure the private demo env file}
+      MYSQL_ROOT_HOST: "%"
+    ports: ["127.0.0.1:13306:3306"]
+    volumes: ["campaign-data:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysql -h127.0.0.1 -uroot -Dqueueify_demo -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  processor-db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: queueify_processor_demo
+      MYSQL_ROOT_PASSWORD: ${QUEUEIFY_DEMO_DB_PASSWORD:?Configure the private demo env file}
+      MYSQL_ROOT_HOST: "%"
+    ports: ["127.0.0.1:13307:3306"]
+    volumes: ["processor-data:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysql -h127.0.0.1 -uroot -Dqueueify_processor_demo -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+volumes:
+  campaign-data:
+  processor-data:
